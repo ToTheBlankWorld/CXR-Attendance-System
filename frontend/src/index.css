@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* CXR Brand Colors */
+  --cxr-dark: #0d1117;
+  --cxr-dark-2: #161b22;
+  --cxr-dark-3: #1c2330;
+  --cxr-cyan: #00d4e8;
+  --cxr-cyan-2: #00b8cc;
+  --cxr-cyan-3: #009baf;
+  --cxr-teal: #0d7377;
+  --cxr-navy: #0a1628;
+  --cxr-border: rgba(0, 212, 232, 0.15);
+  --cxr-glow: rgba(0, 212, 232, 0.3);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--cxr-dark);
+  color: #e2e8f0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--cxr-dark-2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cxr-cyan-3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cxr-cyan);
+}
+
+/* Pulse animation for live indicator */
+@keyframes pulse-cyan {
+  0%, 100% { box-shadow: 0 0 0 0 var(--cxr-glow); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.pulse-live {
+  animation: pulse-cyan 2s infinite;
+}
+
+/* Glow text effect */
+.text-glow {
+  text-shadow: 0 0 10px var(--cxr-cyan), 0 0 20px var(--cxr-glow);
+}
+
+/* CXR Card style */
+.cxr-card {
+  background: var(--cxr-dark-2);
+  border: 1px solid var(--cxr-border);
+  border-radius: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cxr-card:hover {
+  border-color: rgba(0, 212, 232, 0.3);
+  box-shadow: 0 0 20px rgba(0, 212, 232, 0.05);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #00d4e8, #00b8cc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated scan line */
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scan-line {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cxr-cyan), transparent);
+  animation: scanLine 8s linear infinite;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3;
+}

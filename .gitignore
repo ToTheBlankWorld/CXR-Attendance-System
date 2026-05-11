@@ -1,0 +1,97 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+.parcel-cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+attendance.db
+
+# Certificates (self-signed, don't commit)
+cert.pem
+key.pem
+
+# Face Recognition Models (too large)
+*.onnx
+.insightface/
+models/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Embeddings (generated, can be recreated)
+embeddings/
+embeddings.pkl
+embeddings.npy
+
+# Unknown faces (temporary)
+unknown_faces/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dataset (large files)
+dataset/
+
+# Temp files
+*.tmp
+.tmp/
+temp/
+
+# Build outputs
+*.exe
+*.dll
+
+# ngrok config (contains auth token)
+.ngrok-config
+.ngrok.yml
