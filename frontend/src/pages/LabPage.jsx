@@ -11,7 +11,7 @@ const SESSION_CONFIG = {
     id: 'MORNING',
     label: 'Morning Lab',
     icon: Sun,
-    timeLabel: '8:00 AM – 9:30 AM',
+    timeLabel: '8:00 AM \u2013 9:30 AM',
     description: 'Students entering the lab for the morning session',
     markStatus: 'ENTERED',
     statusLabel: 'Entered',
@@ -23,7 +23,7 @@ const SESSION_CONFIG = {
     id: 'LUNCH',
     label: 'Lunch Break',
     icon: Coffee,
-    timeLabel: '12:00 PM – 1:00 PM',
+    timeLabel: '12:00 PM \u2013 1:00 PM',
     description: 'Monitor students leaving for lunch break',
     markStatus: 'LEFT_FOR_LUNCH',
     statusLabel: 'Left for Lunch',
@@ -48,7 +48,7 @@ const SESSION_CONFIG = {
     label: 'Leaving Lab',
     icon: DoorOpen,
     timeLabel: 'End of Day',
-    description: 'Final exit tracking — students leaving the lab',
+    description: 'Final exit tracking \u2014 students leaving the lab',
     markStatus: 'LEFT_LAB',
     statusLabel: 'Left Lab',
     color: '#f87171',
@@ -75,7 +75,7 @@ export const LabPage = () => {
   const [logs, setLogs] = useState([]);
   const [recognitions, setRecognitions] = useState([]);
   const [stats, setStats] = useState({ detected: 0, recognized: 0 });
-  const [recognizedMembers, setRecognizedMembers] = useState({}); // regNo -> {name, time, status}
+  const [recognizedMembers, setRecognizedMembers] = useState({});
 
   const scanIntervalRef = useRef(null);
   const logIdRef = useRef(0);
@@ -83,7 +83,6 @@ export const LabPage = () => {
 
   const Icon = config.icon;
 
-  // Clear state when session changes
   useEffect(() => {
     setIsScanning(false);
     setLogs([]);
@@ -96,7 +95,6 @@ export const LabPage = () => {
       scanIntervalRef.current = null;
     }
     if (isActive) stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey]);
 
   const addLog = useCallback((entry) => {
@@ -114,7 +112,7 @@ export const LabPage = () => {
       const currentSnapshot = {};
       response.data.recognitions.forEach((r) => {
         if (r.recognized) {
-          currentSnapshot[r.reg_no] = {
+          currentSnapshot[r.name] = {
             name: r.name,
             confidence: (r.confidence * 100).toFixed(1),
             timestamp: new Date().toLocaleTimeString(),
@@ -122,34 +120,31 @@ export const LabPage = () => {
         }
       });
 
-      // Log new members detected
       if (!previousSnapshotRef.current) {
-        Object.entries(currentSnapshot).forEach(([regNo, member]) => {
+        Object.entries(currentSnapshot).forEach(([, member]) => {
           addLog({
             type: 'entry',
             name: member.name,
-            regNo,
             confidence: member.confidence,
             status: config.markStatus,
             statusLabel: config.statusLabel,
             timestamp: member.timestamp,
           });
-          setRecognizedMembers(prev => ({ ...prev, [regNo]: { ...member, status: config.markStatus } }));
+          setRecognizedMembers(prev => ({ ...prev, [member.name]: { ...member, status: config.markStatus } }));
           setStats(prev => ({ detected: prev.detected + 1, recognized: prev.recognized + 1 }));
         });
       } else {
-        Object.entries(currentSnapshot).forEach(([regNo, member]) => {
-          if (!previousSnapshotRef.current[regNo]) {
+        Object.entries(currentSnapshot).forEach(([name, member]) => {
+          if (!previousSnapshotRef.current[name]) {
             addLog({
               type: 'entry',
               name: member.name,
-              regNo,
               confidence: member.confidence,
               status: config.markStatus,
               statusLabel: config.statusLabel,
               timestamp: member.timestamp,
             });
-            setRecognizedMembers(prev => ({ ...prev, [regNo]: { ...member, status: config.markStatus } }));
+            setRecognizedMembers(prev => ({ ...prev, [name]: { ...member, status: config.markStatus } }));
             setStats(prev => ({ detected: prev.detected + 1, recognized: prev.recognized + 1 }));
           }
         });
@@ -157,7 +152,6 @@ export const LabPage = () => {
 
       previousSnapshotRef.current = currentSnapshot;
 
-      // Unknown faces
       response.data.recognitions.forEach((r) => {
         if (r.is_unknown && r.is_new_unknown) {
           addLog({
@@ -175,7 +169,6 @@ export const LabPage = () => {
   const handleStart = async () => {
     try {
       await recognitionAPI.clearEmbeddings();
-      // Load all embeddings for the lab session (loads all enrolled members)
       await recognitionAPI.loadClass(lectureId);
       await recognitionAPI.clearCooldowns();
       await startCamera();
@@ -186,10 +179,8 @@ export const LabPage = () => {
       previousSnapshotRef.current = null;
       setStats({ detected: 0, recognized: 0 });
 
-      // Fire first scan immediately (small delay to let camera warm up)
       setTimeout(() => doScan(), 500);
 
-      // Then continue scanning every 3 seconds
       scanIntervalRef.current = setInterval(() => doScan(), 3000);
     } catch (err) {
       alert('Failed to start: ' + err.message);
@@ -215,7 +206,6 @@ export const LabPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl" style={{ background: config.bg, border: `1px solid ${config.border}` }}>
@@ -227,12 +217,11 @@ export const LabPage = () => {
             </h1>
             <p className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: '#64748b' }}>
               <Clock className="w-3 h-3" />
-              {config.timeLabel} · {config.description}
+              {config.timeLabel} &middot; {config.description}
             </p>
           </div>
         </div>
 
-        {/* Session badge */}
         <div className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{
           background: config.bg,
           color: config.color,
@@ -242,7 +231,6 @@ export const LabPage = () => {
         </div>
       </div>
 
-      {/* Camera error */}
       {cameraError && (
         <div className="p-4 rounded-lg text-sm" style={{
           background: 'rgba(239,68,68,0.1)',
@@ -254,7 +242,6 @@ export const LabPage = () => {
         </div>
       )}
 
-      {/* Control buttons */}
       <div className="flex gap-3">
         {!isScanning ? (
           <Button onClick={handleStart} style={{
@@ -276,12 +263,11 @@ export const LabPage = () => {
             border: '1px solid rgba(52,211,153,0.2)'
           }}>
             <div className="w-2 h-2 rounded-full bg-green-400 pulse-live" />
-            <span className="text-xs font-medium text-green-400">Live — Scanning every 3s</span>
+            <span className="text-xs font-medium text-green-400">Live \u2014 Scanning every 3s</span>
           </div>
         )}
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Recognized', value: stats.recognized, color: config.color },
@@ -299,7 +285,6 @@ export const LabPage = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* Camera Feed */}
         <div className="col-span-2">
           <Card>
             <CardHeader>
@@ -309,7 +294,7 @@ export const LabPage = () => {
                   Camera Feed
                 </span>
                 {isScanning && (
-                  <span className="text-xs font-medium" style={{ color: '#34d399' }}>● Live</span>
+                  <span className="text-xs font-medium" style={{ color: '#34d399' }}>&bull; Live</span>
                 )}
               </div>
             </CardHeader>
@@ -335,7 +320,6 @@ export const LabPage = () => {
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                   <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-                  {/* Bounding boxes */}
                   {recognitions.length > 0 && (
                     <svg
                       className="absolute top-0 left-0"
@@ -382,7 +366,6 @@ export const LabPage = () => {
           </Card>
         </div>
 
-        {/* Activity Log */}
         <div>
           <Card>
             <CardHeader>
@@ -406,7 +389,6 @@ export const LabPage = () => {
                             <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: config.color }} />
                             <div>
                               <p className="font-semibold text-slate-200">{log.name}</p>
-                              <p className="text-slate-500">{log.regNo}</p>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{
                                   background: config.bg, color: config.color, border: `1px solid ${config.border}`
@@ -437,7 +419,6 @@ export const LabPage = () => {
         </div>
       </div>
 
-      {/* Recognized Members Table */}
       {memberCount > 0 && (
         <Card>
           <CardHeader>
@@ -451,16 +432,15 @@ export const LabPage = () => {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-                    {['Name', 'Reg No', 'Status', 'Time', 'Confidence'].map(h => (
+                    {['Name', 'Status', 'Time', 'Confidence'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: '#475569' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(recognizedMembers).map(([regNo, m]) => (
-                    <tr key={regNo} className="border-t" style={{ borderColor: 'rgba(0,212,232,0.06)' }}>
+                  {Object.entries(recognizedMembers).map(([name, m]) => (
+                    <tr key={name} className="border-t" style={{ borderColor: 'rgba(0,212,232,0.06)' }}>
                       <td className="px-4 py-3 text-sm font-medium text-slate-200">{m.name}</td>
-                      <td className="px-4 py-3 text-xs font-mono text-slate-400">{regNo}</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{
                           background: config.bg, color: config.color, border: `1px solid ${config.border}`

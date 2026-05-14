@@ -16,7 +16,6 @@ class LoginRequest(BaseModel):
 
 # Student Schemas
 class StudentBase(BaseModel):
-    reg_no: str
     name: str
 
 class StudentCreate(StudentBase):
@@ -49,9 +48,9 @@ class LectureResponse(LectureBase):
 
 # Attendance Schemas
 class AttendanceBase(BaseModel):
-    reg_no: str
+    student_name: str
     lecture_id: str
-    status: str = "not_marked"  # ENTERED, LEFT_FOR_LUNCH, ENTERED_AFTER_LUNCH, LEFT_LAB
+    status: str = "not_marked"
 
 class AttendanceCreate(AttendanceBase):
     pass
@@ -63,7 +62,6 @@ class AttendanceUpdate(BaseModel):
 
 class AttendanceResponse(BaseModel):
     id: int
-    reg_no: str
     student_name: str
     lecture_id: str
     status: str
@@ -75,7 +73,6 @@ class AttendanceResponse(BaseModel):
         from_attributes = True
 
 class StudentAttendanceInfo(BaseModel):
-    reg_no: str
     student_name: str
     status: str
     entry_time: Optional[str] = None
@@ -103,22 +100,19 @@ class DashboardStats(BaseModel):
 
 # Enrollment Schemas
 class EnrollmentRequest(BaseModel):
-    reg_no: str
     name: str
 
 class EnrollBase64Request(BaseModel):
-    reg_no: str
     name: str
-    images: List[str]  # List of base64 encoded images
+    images: List[str]
 
 class EnrollmentResponse(BaseModel):
     success: bool
     message: str
-    reg_no: Optional[str] = None
+    name: Optional[str] = None
 
 # Face Recognition Schemas
 class RecognitionResult(BaseModel):
-    reg_no: str
     name: str
     confidence: float
     status: str
@@ -129,6 +123,6 @@ class FaceDetectionResult(BaseModel):
 
 # WebSocket Message
 class WSMessage(BaseModel):
-    type: str  # notification, recognition, error
+    type: str
     message: str
     data: Optional[dict] = None

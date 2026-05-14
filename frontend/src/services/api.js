@@ -9,7 +9,6 @@ const api = axios.create({
   },
 });
 
-// Add token to requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -21,7 +20,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -33,31 +31,27 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
 export const authAPI = {
   login: (username, password) =>
     api.post('/auth/login', { username, password }),
 };
 
-// Dashboard API
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
 };
 
-// Classes API
 export const classesAPI = {
   getAll: () => api.get('/classes/'),
   getDetail: (lectureId) => api.get(`/classes/${lectureId}`),
 };
 
-// Attendance API
 export const attendanceAPI = {
-  markPresent: (lectureId, regNo) =>
-    api.post(`/attendance/${lectureId}/mark-present/${regNo}`),
-  markAbsent: (lectureId, regNo) =>
-    api.post(`/attendance/${lectureId}/mark-absent/${regNo}`),
-  markExit: (lectureId, regNo) =>
-    api.post(`/attendance/${lectureId}/mark-exit/${regNo}`),
+  markPresent: (lectureId, name) =>
+    api.post(`/attendance/${lectureId}/mark-present/${encodeURIComponent(name)}`),
+  markAbsent: (lectureId, name) =>
+    api.post(`/attendance/${lectureId}/mark-absent/${encodeURIComponent(name)}`),
+  markExit: (lectureId, name) =>
+    api.post(`/attendance/${lectureId}/mark-exit/${encodeURIComponent(name)}`),
   resetClass: (lectureId) =>
     api.post(`/attendance/${lectureId}/reset`),
   resetAllLogs: () =>
@@ -68,7 +62,6 @@ export const attendanceAPI = {
     api.get('/attendance/unknown-faces', { params: { lecture_id: lectureId, date } }),
 };
 
-// Recognition API
 export const recognitionAPI = {
   clearEmbeddings: () => api.post('/recognition/clear-embeddings'),
   loadClass: (lectureId) => api.post(`/recognition/load-class/${lectureId}`),
@@ -82,12 +75,10 @@ export const recognitionAPI = {
   getEnrolledStudents: () => api.get('/recognition/enrolled-students'),
 };
 
-// Enrollment API
 export const enrollmentAPI = {
-  processDataset: () => api.post('/enrollment/process-dataset'),
-  enrollBase64: (regNo, name, images) =>
-    api.post('/enrollment/enroll-base64', { reg_no: regNo, name, images }),
-  checkEnrollment: (regNo) => api.get(`/enrollment/check/${regNo}`),
+  enrollBase64: (name, images) =>
+    api.post('/enrollment/enroll-base64', { name, images }),
+  checkEnrollment: (name) => api.get(`/enrollment/check/${encodeURIComponent(name)}`),
 };
 
 export default api;

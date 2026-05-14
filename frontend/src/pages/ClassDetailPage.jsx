@@ -22,7 +22,6 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { classesAPI, attendanceAPI, recognitionAPI } from '../services/api';
 import { useCamera } from '../hooks/useCamera';
 
-// Toast Alert Component
 const Alert = ({ alerts, onDismiss }) => {
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
@@ -60,7 +59,7 @@ export const ClassDetailPage = () => {
   const { lectureId } = useParams();
   const [classData, setClassData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState('idle'); // 'idle', 'attendance', 'monitoring'
+  const [mode, setMode] = useState('idle');
   const [attendanceCompleted, setAttendanceCompleted] = useState(false);
   const [recognitions, setRecognitions] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -86,7 +85,6 @@ export const ClassDetailPage = () => {
     fetchClassData();
   }, [fetchClassData]);
 
-  // Auto-dismiss alerts after 5 seconds
   useEffect(() => {
     if (alerts.length > 0) {
       const timer = setTimeout(() => {
@@ -124,7 +122,6 @@ export const ClassDetailPage = () => {
             const response = await recognitionAPI.recognize(lectureId, frame, 'attendance');
             setRecognitions(response.data.recognitions);
             
-            // Process recognitions for alerts
             response.data.recognitions.forEach(r => {
               if (r.attendance_marked && r.status === 'present') {
                 addAlert('present', `${r.name} marked PRESENT`);
@@ -135,7 +132,6 @@ export const ClassDetailPage = () => {
               }
             });
             
-            // Check for unknown faces that left
             if (response.data.unknown_left && response.data.unknown_left.length > 0) {
               response.data.unknown_left.forEach(u => {
                 addAlert('unknown', `Unknown person left after ${u.duration}`);
@@ -158,7 +154,6 @@ export const ClassDetailPage = () => {
     }
     stopCamera();
     
-    // Call stop-attendance to mark all unknown faces as left
     try {
       await recognitionAPI.stopAttendance(lectureId);
     } catch (err) {
@@ -185,7 +180,6 @@ export const ClassDetailPage = () => {
             const response = await recognitionAPI.recognize(lectureId, frame, 'monitoring');
             setRecognitions(response.data.recognitions);
             
-            // Process recognitions for alerts
             response.data.recognitions.forEach(r => {
               if (r.attendance_marked && r.status === 'absent') {
                 addAlert('absent', `${r.name} marked ABSENT (leaving)`);
@@ -196,7 +190,6 @@ export const ClassDetailPage = () => {
               }
             });
             
-            // Check for unknown faces that left
             if (response.data.unknown_left && response.data.unknown_left.length > 0) {
               response.data.unknown_left.forEach(u => {
                 addAlert('unknown', `Unknown person left after ${u.duration}`);
@@ -219,7 +212,6 @@ export const ClassDetailPage = () => {
     }
     stopCamera();
     
-    // Call stop-attendance to mark all unknown faces as left
     try {
       await recognitionAPI.stopAttendance(lectureId);
     } catch (err) {
@@ -247,23 +239,21 @@ export const ClassDetailPage = () => {
     }
   };
 
-  const handleMarkPresent = async (regNo) => {
+  const handleMarkPresent = async (studentName) => {
     try {
-      await attendanceAPI.markPresent(lectureId, regNo);
+      await attendanceAPI.markPresent(lectureId, studentName);
       fetchClassData();
-      const student = classData.students.find(s => s.reg_no === regNo);
-      addAlert('present', `${student?.student_name || regNo} marked PRESENT (manual)`);
+      addAlert('present', `${studentName} marked PRESENT (manual)`);
     } catch (err) {
       console.error('Failed to mark present:', err);
     }
   };
 
-  const handleMarkAbsent = async (regNo) => {
+  const handleMarkAbsent = async (studentName) => {
     try {
-      await attendanceAPI.markAbsent(lectureId, regNo);
+      await attendanceAPI.markAbsent(lectureId, studentName);
       fetchClassData();
-      const student = classData.students.find(s => s.reg_no === regNo);
-      addAlert('absent', `${student?.student_name || regNo} marked ABSENT (manual)`);
+      addAlert('absent', `${studentName} marked ABSENT (manual)`);
     } catch (err) {
       console.error('Failed to mark absent:', err);
     }
@@ -287,7 +277,6 @@ export const ClassDetailPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Confirm Modal for Reset */}
       <ConfirmModal
         isOpen={showResetModal}
         onClose={() => setShowResetModal(false)}
@@ -300,10 +289,8 @@ export const ClassDetailPage = () => {
         isLoading={resetting}
       />
       
-      {/* Toast Alerts */}
       <Alert alerts={alerts} onDismiss={dismissAlert} />
 
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Link to="/classes" className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
@@ -315,9 +302,7 @@ export const ClassDetailPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Camera & Controls */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Camera Preview */}
           <Card>
             <CardHeader className="flex items-center justify-between">
               <h2 className="font-semibold flex items-center gap-2">
@@ -391,7 +376,6 @@ export const ClassDetailPage = () => {
                   </div>
                 )}
 
-                {/* Recognition Overlays */}
                 {recognitions.length > 0 && (
                   <div className="absolute bottom-4 left-4 right-4">
                     <div className="bg-black/70 rounded-lg p-3">
@@ -425,7 +409,6 @@ export const ClassDetailPage = () => {
             </CardBody>
           </Card>
 
-          {/* Student List */}
           <Card>
             <CardHeader className="flex items-center justify-between">
               <h2 className="font-semibold flex items-center gap-2">
@@ -442,7 +425,6 @@ export const ClassDetailPage = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reg No</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entry Time</th>
@@ -452,8 +434,7 @@ export const ClassDetailPage = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {classData.students.map((student) => (
-                      <tr key={student.reg_no} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-mono">{student.reg_no}</td>
+                      <tr key={student.student_name} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{student.student_name}</td>
                         <td className="px-4 py-3">
                           <Badge status={student.status} />
@@ -467,14 +448,14 @@ export const ClassDetailPage = () => {
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleMarkPresent(student.reg_no)}
+                              onClick={() => handleMarkPresent(student.student_name)}
                               className="p-1 text-green-600 hover:bg-green-50 rounded"
                               title="Mark Present"
                             >
                               <CheckCircle className="w-5 h-5" />
                             </button>
                             <button
-                              onClick={() => handleMarkAbsent(student.reg_no)}
+                              onClick={() => handleMarkAbsent(student.student_name)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded"
                               title="Mark Absent"
                             >
@@ -491,7 +472,6 @@ export const ClassDetailPage = () => {
           </Card>
         </div>
 
-        {/* Right Column - Stats & Controls */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -521,7 +501,6 @@ export const ClassDetailPage = () => {
             </CardBody>
           </Card>
 
-          {/* Reset Button - Only visible when there's attendance */}
           {hasAttendance && (
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
@@ -544,18 +523,17 @@ export const ClassDetailPage = () => {
             </Card>
           )}
 
-          {/* Mode Info */}
           <Card>
             <CardHeader>
               <h2 className="font-semibold">Mode Info</h2>
             </CardHeader>
             <CardBody className="space-y-4 text-sm">
               <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="font-medium text-green-700 mb-1">📋 Attendance Mode</p>
+                <p className="font-medium text-green-700 mb-1">Attendance Mode</p>
                 <p className="text-green-600">Faces detected = Mark PRESENT</p>
               </div>
               <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                <p className="font-medium text-orange-700 mb-1">👁️ Monitoring Mode</p>
+                <p className="font-medium text-orange-700 mb-1">Monitoring Mode</p>
                 <p className="text-orange-600">Present students seen = Mark ABSENT (leaving)</p>
               </div>
             </CardBody>
@@ -563,7 +541,6 @@ export const ClassDetailPage = () => {
         </div>
       </div>
 
-      {/* CSS for slide-in animation */}
       <style>{`
         @keyframes slide-in {
           from {

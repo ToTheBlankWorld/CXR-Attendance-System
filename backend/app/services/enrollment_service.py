@@ -17,34 +17,26 @@ class EnrollmentService:
     async def enroll_student_from_images(
         self,
         db: AsyncSession,
-        reg_no: str,
         name: str,
         images: List[np.ndarray]
     ) -> Tuple[bool, str]:
-        """
-        Enroll a student from captured images
-        Saves embedding with reg_no and stores name in database
-        """
         if len(images) < 1:
             return False, "At least 1 image is required"
         
-        # Compute average embedding
         avg_embedding = face_service.compute_average_embedding(images)
         
         if avg_embedding is None:
             return False, "Could not detect face in images"
         
-        # Check if student already exists
         result = await db.execute(
-            select(Student).where(Student.reg_no == reg_no)
+            select(Student).where(Student.name == name)
         )
         existing = result.scalar_one_or_none()
         
         if existing:
-            # Update name and embedding
             existing.name = name
             emb_result = await db.execute(
-                select(Embedding).where(Embedding.reg_no == reg_no)
+                select(Embedding).where(Embedding.student_id == existing.id)
             )
             existing_emb = emb_result.scalar_one_or_none()
             
@@ -52,32 +44,29 @@ class EnrollmentService:
                 existing_emb.vector = avg_embedding.tobytes()
             else:
                 new_embedding = Embedding(
-                    reg_no=reg_no,
+                    student_id=existing.id,
                     vector=avg_embedding.tobytes()
                 )
                 db.add(new_embedding)
         else:
-            # Create new student and embedding
-            new_student = Student(reg_no=reg_no, name=name)
+            new_student = Student(name=name)
             db.add(new_student)
+            await db.flush()
             
             new_embedding = Embedding(
-                reg_no=reg_no,
+                student_id=new_student.id,
                 vector=avg_embedding.tobytes()
             )
             db.add(new_embedding)
         
         await db.commit()
         
-        # Save .npy embedding file with reg_no as filename
-        face_service.save_embedding(reg_no, avg_embedding)
+        face_service.save_embedding(name, avg_embedding)
         
         return True, "Student enrolled successfully"
     
     def process_base64_image(self, base64_str: str) -> Optional[np.ndarray]:
-        """Convert base64 image to numpy array"""
         try:
-            # Remove data URL prefix if present
             if ',' in base64_str:
                 base64_str = base64_str.split(',')[1]
             

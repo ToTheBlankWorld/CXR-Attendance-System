@@ -34,7 +34,7 @@ class FaceRecognitionService:
         self._embeddings_cache: Dict[str, np.ndarray] = {}
         self._class_embeddings: Dict[str, np.ndarray] = {}
         self._cooldown_tracker: Dict[str, float] = {}
-        self._unknown_cooldown_tracker: Dict[str, float] = {}  # Cooldown for unknown faces per lecture
+        self._unknown_cooldown_tracker: Dict[str, float] = {}
         
         logger.info("InsightFace initialized successfully!")
     
@@ -83,70 +83,58 @@ class FaceRecognitionService:
         """Calculate cosine similarity between two embeddings"""
         return float(np.dot(emb1, emb2) / (norm(emb1) * norm(emb2)))
     
-    def save_embedding(self, reg_no: str, embedding: np.ndarray) -> bool:
-        """Save embedding to file"""
+    def save_embedding(self, name: str, embedding: np.ndarray) -> bool:
         try:
             os.makedirs(settings.EMBEDDINGS_PATH, exist_ok=True)
-            filepath = os.path.join(settings.EMBEDDINGS_PATH, f"{reg_no}.npy")
+            filepath = os.path.join(settings.EMBEDDINGS_PATH, f"{name}.npy")
             np.save(filepath, embedding)
-            self._embeddings_cache[reg_no] = embedding
-            logger.info(f"Saved embedding for {reg_no}")
+            self._embeddings_cache[name] = embedding
+            logger.info(f"Saved embedding for {name}")
             return True
         except Exception as e:
             logger.error(f"Error saving embedding: {e}")
             return False
     
-    def load_embedding(self, reg_no: str) -> Optional[np.ndarray]:
-        """Load embedding from file or cache"""
-        if reg_no in self._embeddings_cache:
-            return self._embeddings_cache[reg_no]
+    def load_embedding(self, name: str) -> Optional[np.ndarray]:
+        if name in self._embeddings_cache:
+            return self._embeddings_cache[name]
         
-        filepath = os.path.join(settings.EMBEDDINGS_PATH, f"{reg_no}.npy")
+        filepath = os.path.join(settings.EMBEDDINGS_PATH, f"{name}.npy")
         if os.path.exists(filepath):
             embedding = np.load(filepath)
-            self._embeddings_cache[reg_no] = embedding
+            self._embeddings_cache[name] = embedding
             return embedding
         return None
     
-    def load_class_embeddings(self, reg_nos: List[str], clear_first: bool = True) -> Dict[str, np.ndarray]:
-        """Load embeddings for specific students (class optimization)"""
-        # Clear if this is a class-specific load, keep if appending for global scan
+    def load_class_embeddings(self, names: List[str], clear_first: bool = True) -> Dict[str, np.ndarray]:
         if clear_first:
             self._class_embeddings = {}
         
-        for reg_no in reg_nos:
-            emb = self.load_embedding(reg_no)
+        for n in names:
+            emb = self.load_embedding(n)
             if emb is not None:
-                self._class_embeddings[reg_no] = emb
+                self._class_embeddings[n] = emb
         logger.info(f"Loaded {len(self._class_embeddings)} embeddings total (clear={clear_first})")
         return self._class_embeddings
     
     def recognize_face(self, embedding: np.ndarray, threshold: float = None) -> Optional[Tuple[str, float]]:
-        """
-        Recognize a face against loaded class embeddings
-        Returns (reg_no, confidence) or None if no match
-        """
         if threshold is None:
             threshold = settings.SIMILARITY_THRESHOLD
         
         best_match = None
         best_similarity = -1
         
-        for reg_no, stored_emb in self._class_embeddings.items():
+        for student_name, stored_emb in self._class_embeddings.items():
             similarity = self.cosine_similarity(embedding, stored_emb)
             if similarity > best_similarity:
                 best_similarity = similarity
-                best_match = reg_no
+                best_match = student_name
         
         if best_match and best_similarity >= threshold:
             return (best_match, best_similarity)
         return None
     
     def process_frame_for_recognition(self, frame: np.ndarray) -> List[Dict]:
-        """
-        Process a frame and return all recognized faces
-        Returns list of {reg_no, name, confidence, bbox, embedding}
-        """
         results = []
         faces_data = self.get_all_faces_with_embeddings(frame)
         
@@ -155,33 +143,31 @@ class FaceRecognitionService:
             result = {
                 "bbox": bbox.tolist(),
                 "recognized": match is not None,
-                "embedding": embedding  # Include embedding for cooldown tracking
+                "embedding": embedding
             }
             if match:
-                reg_no, confidence = match
-                result["reg_no"] = reg_no
+                student_name, confidence = match
+                result["name"] = student_name
                 result["confidence"] = confidence
             results.append(result)
         
         return results
     
-    def check_cooldown(self, reg_no: str, cooldown_seconds: int = None) -> bool:
-        """Check if student is in cooldown period"""
+    def check_cooldown(self, student_name: str, cooldown_seconds: int = None) -> bool:
         import time
         if cooldown_seconds is None:
             cooldown_seconds = settings.RECOGNITION_COOLDOWN
         
         current_time = time.time()
-        if reg_no in self._cooldown_tracker:
-            last_time = self._cooldown_tracker[reg_no]
+        if student_name in self._cooldown_tracker:
+            last_time = self._cooldown_tracker[student_name]
             if current_time - last_time < cooldown_seconds:
                 return True
         return False
     
-    def set_cooldown(self, reg_no: str):
-        """Set cooldown for a student"""
+    def set_cooldown(self, student_name: str):
         import time
-        self._cooldown_tracker[reg_no] = time.time()
+        self._cooldown_tracker[student_name] = time.time()
     
     def clear_cooldowns(self):
         """Clear all cooldowns"""

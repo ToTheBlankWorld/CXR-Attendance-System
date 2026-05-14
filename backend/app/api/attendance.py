@@ -9,44 +9,35 @@ from app.services.attendance_service import attendance_service
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
-@router.post("/{lecture_id}/mark-present/{reg_no}")
+@router.post("/{lecture_id}/mark-present/{name}")
 async def mark_student_present(
     lecture_id: str,
-    reg_no: str,
+    name: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Manually mark a student as present
-    """
-    attendance = await attendance_service.mark_present(db, reg_no, lecture_id)
-    return {"success": True, "message": f"Student {reg_no} marked as present"}
+    attendance = await attendance_service.mark_present(db, name, lecture_id)
+    return {"success": True, "message": f"Student {name} marked as present"}
 
-@router.post("/{lecture_id}/mark-absent/{reg_no}")
+@router.post("/{lecture_id}/mark-absent/{name}")
 async def mark_student_absent(
     lecture_id: str,
-    reg_no: str,
+    name: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Manually mark a student as absent
-    """
-    attendance = await attendance_service.mark_absent(db, reg_no, lecture_id)
-    return {"success": True, "message": f"Student {reg_no} marked as absent"}
+    attendance = await attendance_service.mark_absent(db, name, lecture_id)
+    return {"success": True, "message": f"Student {name} marked as absent"}
 
-@router.post("/{lecture_id}/mark-exit/{reg_no}")
+@router.post("/{lecture_id}/mark-exit/{name}")
 async def mark_student_exit(
     lecture_id: str,
-    reg_no: str,
+    name: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Mark student exit time
-    """
-    attendance = await attendance_service.mark_exit(db, reg_no, lecture_id)
-    return {"success": True, "message": f"Exit recorded for {reg_no}"}
+    attendance = await attendance_service.mark_exit(db, name, lecture_id)
+    return {"success": True, "message": f"Exit recorded for {name}"}
 
 @router.get("/logs")
 async def get_attendance_logs(
@@ -55,25 +46,19 @@ async def get_attendance_logs(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get attendance logs with optional filters
-    """
     from sqlalchemy import select
     from app.models.models import Student
     
     logs = await attendance_service.get_attendance_logs(db, lecture_id, date)
     
-    # Get student names from database
-    db_result = await db.execute(select(Student.reg_no, Student.name))
-    student_map = {row[0]: row[1] for row in db_result.fetchall()}
+    db_result = await db.execute(select(Student))
+    student_map = {s.id: s.name for s in db_result.scalars().all()}
     
-    # Enrich logs with student names
     enriched_logs = []
     for log in logs:
         enriched_logs.append({
             "id": log.id,
-            "reg_no": log.reg_no,
-            "student_name": student_map.get(log.reg_no, "Unknown"),
+            "student_name": student_map.get(log.student_id, "Unknown"),
             "lecture_id": log.lecture_id,
             "status": log.status,
             "entry_time": log.entry_time.isoformat() if log.entry_time else None,
@@ -81,31 +66,25 @@ async def get_attendance_logs(
             "date": log.date
         })
     
-    # Group logs by (reg_no, date) and consolidate activities
     from collections import defaultdict
     grouped = defaultdict(list)
     for log in enriched_logs:
-        key = (log['reg_no'], log['date'])
+        key = (log['student_name'], log['date'])
         grouped[key].append(log)
     
-    # Create consolidated records with activities array
-    # Define session order
     session_order = {'LAB_MORNING': 0, 'LAB_LUNCH': 1, 'LAB_AFTER_LUNCH': 2, 'LAB_EXIT': 3}
     
     result = []
-    for (reg_no, date), activities in grouped.items():
-        # Get first entry for student info
+    for (student_name, date), activities in grouped.items():
         first = activities[0]
-        # Sort activities by lecture_id order (Morning → Lunch → Return → Exit)
         activities_sorted = sorted(
             activities, 
             key=lambda x: (session_order.get(x['lecture_id'], 999), x['entry_time'] or '')
         )
         
         result.append({
-            "id": f"{reg_no}_{date}",
-            "reg_no": reg_no,
-            "student_name": first['student_name'],
+            "id": f"{student_name}_{date}",
+            "student_name": student_name,
             "date": date,
             "activity_count": len(activities),
             "activities": activities_sorted,
@@ -113,8 +92,7 @@ async def get_attendance_logs(
             "last_exit": activities_sorted[-1]['exit_time'] if activities_sorted else None,
         })
     
-    # Sort by date descending, then by reg_no
-    result.sort(key=lambda x: (x['date'], x['reg_no']), reverse=True)
+    result.sort(key=lambda x: (x['date'], x['student_name']), reverse=True)
     
     return result
 
@@ -124,9 +102,6 @@ async def reset_class_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Reset all attendance for a class (for testing purposes)
-    """
     deleted_count = await attendance_service.reset_class_attendance(db, lecture_id)
     return {
         "success": True, 
@@ -140,9 +115,6 @@ async def get_unknown_faces(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get unknown faces logs with optional filters
-    """
     from sqlalchemy import select, and_
     from app.models.models import UnknownFace
     
@@ -162,7 +134,7 @@ async def get_unknown_faces(
     result = await db.execute(query)
     unknown_faces = result.scalars().all()
     
-    # Get lecture info from CSV
+    from app.services.csv_service import csv_service
     timetable = csv_service.get_timetable()
     lecture_map = {l['lecture_id']: l['subject'] for l in timetable}
     
@@ -183,25 +155,19 @@ async def reset_all_logs(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Reset all attendance logs and unknown faces (for testing purposes)
-    """
     from sqlalchemy import delete
     from app.models.models import Attendance, UnknownFace
     import os
     import shutil
     
-    # Delete all attendance records
     attendance_result = await db.execute(delete(Attendance))
     attendance_count = attendance_result.rowcount
     
-    # Delete all unknown face records
     unknown_result = await db.execute(delete(UnknownFace))
     unknown_count = unknown_result.rowcount
     
     await db.commit()
     
-    # Clear unknown faces folder
     unknown_faces_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "unknown_faces")
     if os.path.exists(unknown_faces_dir):
         for file in os.listdir(unknown_faces_dir):

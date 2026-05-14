@@ -21,10 +21,9 @@ export const LiveAttendancePage = () => {
   
   const scanIntervalRef = useRef(null);
   const logIdRef = useRef(0);
-  const previousSnapshotRef = useRef(null); // Store previous snapshot of students
-  const lastInTimeRef = useRef({}); // Track {regNo: timestamp} of last IN log
+  const previousSnapshotRef = useRef(null);
+  const lastInTimeRef = useRef({});
 
-  // Fetch classes on mount
   useEffect(() => {
     const fetchClasses = async () => {
       try {
@@ -37,13 +36,10 @@ export const LiveAttendancePage = () => {
     fetchClasses();
   }, []);
 
-  // Start live scanning
   const handleStart = async () => {
     try {
-      // Clear previous embeddings
       await recognitionAPI.clearEmbeddings();
       
-      // Load embeddings for selected class(es)
       if (selectedLecture !== 'all') {
         await recognitionAPI.loadClass(selectedLecture);
       } else {
@@ -60,7 +56,6 @@ export const LiveAttendancePage = () => {
       
       await recognitionAPI.clearCooldowns();
       
-      // START CAMERA
       await startCamera();
       
       setIsScanning(true);
@@ -70,7 +65,6 @@ export const LiveAttendancePage = () => {
       lastInTimeRef.current = {};
       setStats({ totalDetected: 0, totalRecognized: 0, totalUnknown: 0 });
 
-      // Start snapshot-based scanning every 5 seconds
       const lectureIdToUse = selectedLecture !== 'all' ? selectedLecture : 'all';
       
       scanIntervalRef.current = setInterval(async () => {
@@ -88,11 +82,10 @@ export const LiveAttendancePage = () => {
 
           setRecognitions(response.data.recognitions);
 
-          // Get current snapshot of recognized students
           const currentSnapshot = {};
           response.data.recognitions.forEach((r) => {
             if (r.recognized && r.attendance_marked) {
-              currentSnapshot[r.reg_no] = {
+              currentSnapshot[r.name] = {
                 name: r.name,
                 confidence: (r.confidence * 100).toFixed(2),
                 timestamp: new Date().toLocaleTimeString(),
@@ -100,16 +93,14 @@ export const LiveAttendancePage = () => {
             }
           });
 
-          // If this is the first snapshot, log all students as IN
           if (!previousSnapshotRef.current) {
-            Object.entries(currentSnapshot).forEach(([regNo, student]) => {
+            Object.entries(currentSnapshot).forEach(([, student]) => {
               const logId = ++logIdRef.current;
               const logEntry = {
                 id: logId,
                 timestamp: student.timestamp,
                 type: 'recognized',
                 name: student.name,
-                regNo,
                 confidence: student.confidence,
                 status: 'in',
                 lecture_id: lectureIdToUse,
@@ -123,34 +114,28 @@ export const LiveAttendancePage = () => {
               }));
             });
           } else {
-            // Compare with previous snapshot
-            // Check for students who LEFT (were in previous but not in current)
-            Object.entries(previousSnapshotRef.current).forEach(([regNo, prevStudent]) => {
-              if (!currentSnapshot[regNo]) {
-                // Student was in previous snapshot but NOT in current = OUT
-                const lastInTimeStr = lastInTimeRef.current[regNo];
+            Object.entries(previousSnapshotRef.current).forEach(([name, prevStudent]) => {
+              if (!currentSnapshot[name]) {
+                const lastInTimeStr = lastInTimeRef.current[name];
                 const currentOutTime = new Date();
                 
                 let gapFromLastInSec = 0;
                 if (lastInTimeStr) {
                   try {
-                    // Parse the timestamp string (e.g., "11:24:35 PM")
                     const lastInDate = new Date(`2024-01-01 ${lastInTimeStr}`);
                     const currentOutDate = new Date(`2024-01-01 ${currentOutTime.toLocaleTimeString()}`);
                     gapFromLastInSec = (currentOutDate - lastInDate) / 1000;
                     
-                    // Handle wrap around midnight
                     if (gapFromLastInSec < 0) {
                       gapFromLastInSec += 24 * 3600;
                     }
                   } catch (e) {
-                    gapFromLastInSec = 0; // If parsing fails, treat as 0 (don't log)
+                    gapFromLastInSec = 0;
                   }
                 } else {
-                  gapFromLastInSec = 0; // No IN time recorded, don't log OUT
+                  gapFromLastInSec = 0;
                 }
                 
-                // Only log OUT if gap from last IN is > 5 seconds (strictly greater, not equal)
                 if (gapFromLastInSec > 5) {
                   const logId = ++logIdRef.current;
                   const timestamp = new Date().toLocaleTimeString();
@@ -159,7 +144,6 @@ export const LiveAttendancePage = () => {
                     timestamp,
                     type: 'recognized',
                     name: prevStudent.name,
-                    regNo,
                     confidence: 'N/A',
                     status: 'out',
                     lecture_id: lectureIdToUse,
@@ -169,11 +153,9 @@ export const LiveAttendancePage = () => {
               }
             });
 
-            // Check for NEW students who ENTERED (in current but not in previous)
-            Object.entries(currentSnapshot).forEach(([regNo, student]) => {
-              if (!previousSnapshotRef.current[regNo]) {
-                // New student found = IN
-                lastInTimeRef.current[regNo] = student.timestamp;
+            Object.entries(currentSnapshot).forEach(([name, student]) => {
+              if (!previousSnapshotRef.current[name]) {
+                lastInTimeRef.current[name] = student.timestamp;
                 
                 const logId = ++logIdRef.current;
                 const logEntry = {
@@ -181,7 +163,6 @@ export const LiveAttendancePage = () => {
                   timestamp: student.timestamp,
                   type: 'recognized',
                   name: student.name,
-                  regNo,
                   confidence: student.confidence,
                   status: 'in',
                   lecture_id: lectureIdToUse,
@@ -197,10 +178,8 @@ export const LiveAttendancePage = () => {
             });
           }
 
-          // Store current snapshot for next comparison
           previousSnapshotRef.current = currentSnapshot;
 
-          // Log unknown faces
           response.data.recognitions.forEach((r) => {
             if (r.is_unknown && r.is_new_unknown) {
               const logId = ++logIdRef.current;
@@ -224,14 +203,13 @@ export const LiveAttendancePage = () => {
         } catch (err) {
           console.error('Recognition error:', err.response?.data || err.message);
         }
-      }, 5000); // Scan every 5 seconds
+      }, 5000);
     } catch (err) {
-      console.error('❌ Failed to start:', err);
+      console.error('Failed to start:', err);
       alert('Failed: ' + err.message);
     }
   };
 
-  // Stop scanning
   const handleStop = async () => {
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
@@ -239,7 +217,6 @@ export const LiveAttendancePage = () => {
     }
     stopCamera();
     
-    // Mark unknown faces as left
     if (selectedLecture !== 'all') {
       try {
         await recognitionAPI.stopAttendance(selectedLecture);
@@ -252,19 +229,17 @@ export const LiveAttendancePage = () => {
     setRecognitions([]);
   };
 
-  // Export logs as CSV with smart filtering
   const handleExport = () => {
     if (logs.length === 0) return;
 
     const timestamp = new Date().toISOString().split('T')[0];
     
-    // Parse all logs into IN/OUT events per student
-    const studentSessions = {}; // {regNo: {name, inTimes: [], outTimes: []}}
+    const studentSessions = {};
     
     logs.forEach((log) => {
       if (log.type === 'recognized' && (log.status === 'in' || log.status === 'out')) {
-        if (!studentSessions[log.regNo]) {
-          studentSessions[log.regNo] = {
+        if (!studentSessions[log.name]) {
+          studentSessions[log.name] = {
             name: log.name,
             inTimes: [],
             outTimes: [],
@@ -272,37 +247,30 @@ export const LiveAttendancePage = () => {
         }
         
         if (log.status === 'in') {
-          studentSessions[log.regNo].inTimes.push(new Date(`2024-01-01 ${log.timestamp}`));
+          studentSessions[log.name].inTimes.push(new Date(`2024-01-01 ${log.timestamp}`));
         } else {
-          studentSessions[log.regNo].outTimes.push(new Date(`2024-01-01 ${log.timestamp}`));
+          studentSessions[log.name].outTimes.push(new Date(`2024-01-01 ${log.timestamp}`));
         }
       }
     });
 
-    // Filter fake OUTs and calculate totals per student
-    const filteredData = Object.entries(studentSessions).map(([regNo, data]) => {
+    const filteredData = Object.entries(studentSessions).map(([name, data]) => {
       const inTimes = data.inTimes.sort((a, b) => a - b);
       const outTimes = data.outTimes.sort((a, b) => a - b);
       
-      // Match IN/OUT pairs and filter fake OUTs (< 10 sec gaps)
       const realSessions = [];
       let outIdx = 0;
       
       inTimes.forEach((inTime, inIdx) => {
-        // Find matching OUT after this IN
         while (outIdx < outTimes.length) {
           const outTime = outTimes[outIdx];
           const inToOutGap = (outTime - inTime) / 1000;
           
           if (inToOutGap > 0) {
-            // Get the next IN time
             const nextIn = inIdx + 1 < inTimes.length ? inTimes[inIdx + 1] : null;
             const outToNextInGap = nextIn ? (nextIn - outTime) / 1000 : 999999;
             
-            // Check if this is a REAL OUT (gap from OUT to next IN >= 10 sec)
-            // OR if there's no next IN (student left for good)
             if (outToNextInGap >= 10 || !nextIn) {
-              // This is a REAL OUT - calculate actual OUT duration
               const outDuration = outToNextInGap >= 10 ? outToNextInGap : 0;
               realSessions.push({
                 inTime,
@@ -312,7 +280,6 @@ export const LiveAttendancePage = () => {
               outIdx++;
               break;
             } else if (outToNextInGap < 10) {
-              // FAKE OUT - gap too small, skip this OUT entirely
               outIdx++;
               continue;
             }
@@ -322,7 +289,6 @@ export const LiveAttendancePage = () => {
         }
       });
       
-      // Calculate totals
       let totalInDuration = 0;
       let totalOutDuration = 0;
       let firstInTime = inTimes.length > 0 ? inTimes[0] : null;
@@ -332,24 +298,20 @@ export const LiveAttendancePage = () => {
         totalOutDuration += session.outDuration;
       });
       
-      // Total IN time = sum of IN to OUT gaps for real sessions
       realSessions.forEach((session) => {
         const inToOutGap = (session.outTime - session.inTime) / 1000;
         totalInDuration += inToOutGap;
       });
       
-      // If student is still IN (no final OUT), add time from last IN to now
       const lastRealSession = realSessions.length > 0 ? realSessions[realSessions.length - 1] : null;
       const lastInTime = inTimes.length > 0 ? inTimes[inTimes.length - 1] : null;
       if (lastInTime && (!lastRealSession || lastInTime > lastRealSession.inTime)) {
-        // Student is currently IN (last action was IN, not OUT)
         const now = new Date(`2024-01-01 ${new Date().toLocaleTimeString()}`);
         totalInDuration += (now - lastInTime) / 1000;
       }
       
       return {
         name: data.name,
-        regNo,
         firstInTime: firstInTime ? firstInTime.toLocaleTimeString() : 'N/A',
         lastOutTime: lastOutTime ? lastOutTime.toLocaleTimeString() : 'N/A',
         totalInDuration: totalInDuration >= 0 ? `${Math.floor(totalInDuration / 60)}m ${Math.floor(totalInDuration % 60)}s` : '0s',
@@ -357,13 +319,11 @@ export const LiveAttendancePage = () => {
       };
     });
 
-    // Generate CSV
-    const headers = ['Student Name', 'Reg No', 'First IN', 'Last OUT', 'Total IN Duration', 'Total OUT Duration'];
+    const headers = ['Student Name', 'First IN', 'Last OUT', 'Total IN Duration', 'Total OUT Duration'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map((row) => [
         `"${row.name}"`,
-        row.regNo,
         row.firstInTime,
         row.lastOutTime,
         row.totalInDuration,
@@ -389,7 +349,6 @@ export const LiveAttendancePage = () => {
         <p className="text-gray-500">Real-time face recognition and attendance tracking</p>
       </div>
 
-      {/* Show camera error if any */}
       {cameraError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
           <p className="font-medium">Camera Error</p>
@@ -397,10 +356,8 @@ export const LiveAttendancePage = () => {
         </div>
       )}
 
-      {/* Controls */}
       <Card>
         <CardBody className="flex items-center gap-4">
-          {/* Class Selector */}
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Class
@@ -420,7 +377,6 @@ export const LiveAttendancePage = () => {
             </select>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-2 items-end pt-5">
             {!isScanning ? (
               <Button
@@ -446,13 +402,12 @@ export const LiveAttendancePage = () => {
               variant="outline"
               className="!border-purple-500 !text-purple-600 hover:!bg-purple-50"
             >
-              📊 Export
+              Export
             </Button>
           </div>
         </CardBody>
       </Card>
 
-      {/* Statistics */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardBody>
@@ -483,14 +438,13 @@ export const LiveAttendancePage = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* Camera Feed */}
         <div className="col-span-2">
           <Card>
             <CardHeader>
               <h2 className="font-semibold flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-[#0d7377]" />
                 Camera Feed
-                {isScanning && <span className="ml-auto text-sm text-green-600 font-medium">● Live</span>}
+                {isScanning && <span className="ml-auto text-sm text-green-600 font-medium">Live</span>}
               </h2>
             </CardHeader>
             <CardBody>
@@ -512,7 +466,6 @@ export const LiveAttendancePage = () => {
                   />
                   <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-                  {/* Draw bounding boxes */}
                   {recognitions.length > 0 && (
                     <svg
                       className="absolute top-0 left-0"
@@ -528,7 +481,6 @@ export const LiveAttendancePage = () => {
                         const videoElement = videoRef.current;
                         if (!videoElement) return null;
 
-                        // Scale bbox to actual video dimensions
                         const containerWidth = videoElement.clientWidth;
                         const containerHeight = videoElement.clientHeight;
                         const videoWidth = videoElement.videoWidth || 640;
@@ -570,7 +522,6 @@ export const LiveAttendancePage = () => {
           </Card>
         </div>
 
-        {/* Live Log */}
         <div>
           <Card>
             <CardHeader>
@@ -594,8 +545,7 @@ export const LiveAttendancePage = () => {
                             <>
                               <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{log.name} - {log.status === 'in' ? '🟢 IN' : '🔴 OUT'}</p>
-                                <p className="text-gray-500 text-xs">{log.regNo}</p>
+                                <p className="font-medium text-gray-900 truncate">{log.name} - {log.status === 'in' ? 'IN' : 'OUT'}</p>
                                 <p className="text-gray-400 text-xs">Confidence: {log.confidence}</p>
                                 <p className="text-gray-400 text-xs">{log.timestamp}</p>
                               </div>

@@ -13,9 +13,6 @@ router = APIRouter(prefix="/classes", tags=["Classes"])
 async def get_all_classes(
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get all classes from timetable CSV
-    """
     timetable = csv_service.get_timetable()
     student_counts = csv_service.get_student_count_per_lecture()
     
@@ -39,20 +36,14 @@ async def get_class_detail(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get class details with student attendance information
-    """
-    # Get lecture info
     lecture = csv_service.get_lecture_by_id(lecture_id)
     if not lecture:
         raise HTTPException(status_code=404, detail="Class not found")
     
-    # Get students with attendance
     attendance_list = await attendance_service.get_class_attendance(db, lecture_id)
     
     students = [
         StudentAttendanceInfo(
-            reg_no=a['reg_no'],
             student_name=a['student_name'],
             status=a['status'],
             entry_time=a['entry_time'],

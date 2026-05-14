@@ -6,7 +6,6 @@ import { Input } from '../components/ui/Input';
 import { enrollmentAPI } from '../services/api';
 
 export const EnrollmentPage = () => {
-  const [regNo, setRegNo] = useState('');
   const [name, setName] = useState('');
   const [capturedImage, setCapturedImage] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -67,16 +66,15 @@ export const EnrollmentPage = () => {
       setResult({ success: false, message: 'Please capture or upload a face image' });
       return;
     }
-    if (!regNo || !name) {
-      setResult({ success: false, message: 'Please fill in all fields' });
+    if (!name) {
+      setResult({ success: false, message: 'Please enter the member name' });
       return;
     }
 
     setLoading(true);
     try {
-      const response = await enrollmentAPI.enrollBase64(regNo, name, [image]);
+      const response = await enrollmentAPI.enrollBase64(name, [image]);
       setResult({ success: true, message: response.data.message || 'Member enrolled successfully!' });
-      setRegNo('');
       setName('');
       setCapturedImage(null);
       setUploadedImage(null);
@@ -97,7 +95,6 @@ export const EnrollmentPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
           Enroll Member
@@ -108,7 +105,6 @@ export const EnrollmentPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Guidelines */}
         <Card>
           <CardHeader>
             <span className="flex items-center gap-2">
@@ -118,7 +114,7 @@ export const EnrollmentPage = () => {
           </CardHeader>
           <CardBody className="space-y-4">
             <div className="rounded-xl p-4" style={{ background: 'rgba(0,212,232,0.06)', border: '1px solid rgba(0,212,232,0.15)' }}>
-              <h3 className="font-semibold text-sm mb-2" style={{ color: '#00d4e8' }}>📸 Single Front-Face Image</h3>
+              <h3 className="font-semibold text-sm mb-2" style={{ color: '#00d4e8' }}>Single Front-Face Image</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 CXR Lab uses a simplified enrollment process. Only one clear front-facing image is needed. 
                 Students will directly face the camera in the lab environment.
@@ -126,29 +122,28 @@ export const EnrollmentPage = () => {
             </div>
 
             <div className="rounded-xl p-4" style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}>
-              <h3 className="font-semibold text-sm mb-2" style={{ color: '#34d399' }}>✅ Best Practices</h3>
+              <h3 className="font-semibold text-sm mb-2" style={{ color: '#34d399' }}>Best Practices</h3>
               <ul className="text-xs text-slate-400 space-y-1">
-                <li>• Good, even lighting on face</li>
-                <li>• Look directly at the camera</li>
-                <li>• Neutral expression</li>
-                <li>• Clear, unobstructed face</li>
-                <li>• Neutral background preferred</li>
+                <li>Good, even lighting on face</li>
+                <li>Look directly at the camera</li>
+                <li>Neutral expression</li>
+                <li>Clear, unobstructed face</li>
+                <li>Neutral background preferred</li>
               </ul>
             </div>
 
             <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
-              <h3 className="font-semibold text-sm mb-2" style={{ color: '#f87171' }}>❌ Avoid</h3>
+              <h3 className="font-semibold text-sm mb-2" style={{ color: '#f87171' }}>Avoid</h3>
               <ul className="text-xs text-slate-400 space-y-1">
-                <li>• Glasses or sunglasses</li>
-                <li>• Face masks or coverings</li>
-                <li>• Strong shadows</li>
-                <li>• Looking away from camera</li>
+                <li>Glasses or sunglasses</li>
+                <li>Face masks or coverings</li>
+                <li>Strong shadows</li>
+                <li>Looking away from camera</li>
               </ul>
             </div>
           </CardBody>
         </Card>
 
-        {/* Right: Form */}
         <Card>
           <CardHeader>
             <span className="flex items-center gap-2">
@@ -159,13 +154,6 @@ export const EnrollmentPage = () => {
           <CardBody>
             <form onSubmit={handleSubmit} className="space-y-5">
               <Input
-                label="Registration Number / ID"
-                value={regNo}
-                onChange={(e) => setRegNo(e.target.value)}
-                placeholder="e.g., CXR2024001"
-                required
-              />
-              <Input
                 label="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -173,7 +161,6 @@ export const EnrollmentPage = () => {
                 required
               />
 
-              {/* Image Preview */}
               {currentImage ? (
                 <div>
                   <label className="block text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#64748b' }}>
@@ -194,13 +181,12 @@ export const EnrollmentPage = () => {
                     <div className="absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-medium" style={{
                       background: 'rgba(0,212,232,0.9)', color: '#0d1117'
                     }}>
-                      ✓ Ready to enroll
+                      Ready to enroll
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  {/* Camera capture */}
                   <div>
                     <label className="block text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#64748b' }}>
                       Capture Face Image
@@ -210,7 +196,6 @@ export const EnrollmentPage = () => {
                         <div className="relative rounded-xl overflow-hidden bg-black" style={{ border: '1px solid rgba(0,212,232,0.2)' }}>
                           <video ref={videoRef} autoPlay playsInline muted className="w-full" />
                           <canvas ref={canvasRef} className="hidden" />
-                          {/* Scan overlay */}
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="w-48 h-48 rounded-full border-2 border-dashed opacity-60" style={{ borderColor: '#00d4e8' }} />
                           </div>
@@ -233,7 +218,6 @@ export const EnrollmentPage = () => {
                     )}
                   </div>
 
-                  {/* File upload */}
                   {!isCapturing && (
                     <div>
                       <label className="block text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: '#64748b' }}>
@@ -258,7 +242,6 @@ export const EnrollmentPage = () => {
                 </>
               )}
 
-              {/* Result message */}
               {result && (
                 <div className="px-4 py-3 rounded-lg flex items-start gap-3 text-sm" style={{
                   background: result.success ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
@@ -270,7 +253,7 @@ export const EnrollmentPage = () => {
                 </div>
               )}
 
-              <Button type="submit" className="w-full py-3" loading={loading} disabled={!currentImage}>
+              <Button type="submit" className="w-full py-3" loading={loading} disabled={!currentImage || !name}>
                 <User className="w-4 h-4" />
                 Enroll Member
               </Button>

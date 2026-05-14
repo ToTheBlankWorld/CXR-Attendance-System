@@ -43,7 +43,7 @@ export const LogsPage = () => {
   useEffect(() => { fetchLogs(); }, [filters]);
 
   const formatTime = (isoString) => {
-    if (!isoString) return '—';
+    if (!isoString) return '\u2014';
     return new Date(isoString).toLocaleTimeString();
   };
 
@@ -69,10 +69,9 @@ export const LogsPage = () => {
 
   const exportCSV = () => {
     if (!logs.length) return;
-    const headers = ['Name', 'Reg No', 'Date', 'Activities Count', 'First Entry', 'Last Exit'];
+    const headers = ['Name', 'Date', 'Activities Count', 'First Entry', 'Last Exit'];
     const rows = logs.map(l => [
       `"${l.student_name}"`,
-      l.reg_no,
       l.date,
       l.activity_count,
       formatTime(l.first_entry),
@@ -99,7 +98,6 @@ export const LogsPage = () => {
     outline: 'none',
   };
 
-  // Calculate stats from consolidated logs
   const totalActivities = logs.reduce((sum, log) => sum + log.activity_count, 0);
   const totalStudents = logs.length;
 
@@ -116,7 +114,6 @@ export const LogsPage = () => {
         isLoading={resetting}
       />
 
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
@@ -142,7 +139,6 @@ export const LogsPage = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardBody>
           <div className="flex flex-wrap gap-4 items-end">
@@ -182,7 +178,6 @@ export const LogsPage = () => {
         </CardBody>
       </Card>
 
-      {/* Summary badges */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Total Students', value: totalStudents, color: '#00d4e8' },
@@ -198,7 +193,6 @@ export const LogsPage = () => {
         ))}
       </div>
 
-      {/* Logs Table */}
       <Card>
         <CardHeader>
           <span className="flex items-center gap-2">
@@ -222,7 +216,7 @@ export const LogsPage = () => {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-                    {['', 'Name', 'Reg No', 'Date', 'Activities', 'First Entry', 'Last Exit'].map(h => (
+                    {['', 'Name', 'Date', 'Activities', 'First Entry', 'Last Exit'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: '#475569' }}>
                         {h}
                       </th>
@@ -232,7 +226,6 @@ export const LogsPage = () => {
                 <tbody>
                   {logs.map((log) => (
                     <tbody key={log.id}>
-                      {/* Main row - clickable to expand */}
                       <tr 
                         onClick={() => toggleExpand(log.id)}
                         className="border-t transition-colors hover:bg-[rgba(0,212,232,0.05)] cursor-pointer" 
@@ -254,10 +247,9 @@ export const LogsPage = () => {
                             {log.student_name}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs font-mono text-slate-500">{log.reg_no}</td>
                         <td className="px-4 py-3 text-xs text-slate-500">{log.date}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{
+                        <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap" style={{
                             background: 'rgba(0,212,232,0.1)',
                             color: '#00d4e8',
                             border: '1px solid rgba(0,212,232,0.2)'
@@ -274,12 +266,11 @@ export const LogsPage = () => {
                         <td className="px-4 py-3 text-xs text-slate-500">{formatTime(log.last_exit)}</td>
                       </tr>
                       
-                      {/* Expanded details - all activities */}
                       {expandedRows[log.id] && (
                         <tr style={{ background: 'rgba(0,212,232,0.02)' }}>
-                          <td colSpan="7" className="px-4 py-4">
+                          <td colSpan="6" className="px-4 py-4">
                             <div className="space-y-2">
-                              <p className="text-xs font-semibold text-slate-400 mb-3">📋 All Activities for {log.student_name}</p>
+                              <p className="text-xs font-semibold text-slate-400 mb-3">All Activities for {log.student_name}</p>
                               {log.activities.map((activity, idx) => (
                                 <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg" style={{
                                   background: 'rgba(0,0,0,0.3)',

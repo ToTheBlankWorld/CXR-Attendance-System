@@ -30,14 +30,13 @@ export const EmbedListPage = () => {
     const term = searchTerm.toLowerCase();
     setFiltered(
       members.filter(m =>
-        m.student_name?.toLowerCase().includes(term) ||
-        m.reg_no?.toString().includes(term)
+        m.student_name?.toLowerCase().includes(term)
       )
     );
   }, [searchTerm, members]);
 
   const handleDownload = () => {
-    const rows = [['Reg No', 'Name'], ...filtered.map(m => [m.reg_no, m.student_name])];
+    const rows = [['Name'], ...filtered.map(m => [m.student_name])];
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -62,7 +61,6 @@ export const EmbedListPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
@@ -84,7 +82,6 @@ export const EmbedListPage = () => {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total Enrolled', value: members.length, color: '#00d4e8' },
@@ -100,7 +97,6 @@ export const EmbedListPage = () => {
         ))}
       </div>
 
-      {/* Search */}
       <Card>
         <CardBody>
           <div className="flex items-center gap-4">
@@ -108,7 +104,7 @@ export const EmbedListPage = () => {
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
               <input
                 type="text"
-                placeholder="Search by name or ID..."
+                placeholder="Search by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={inputStyle}
@@ -118,7 +114,6 @@ export const EmbedListPage = () => {
         </CardBody>
       </Card>
 
-      {/* Member Table */}
       <Card>
         <CardHeader>
           <span className="flex items-center gap-2">
@@ -142,7 +137,7 @@ export const EmbedListPage = () => {
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-                    {['#', 'ID / Reg No', 'Member Name', 'Status', 'Embedding'].map(h => (
+                    {['#', 'Member Name', 'Status', 'Embedding'].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: '#475569' }}>
                         {h}
                       </th>
@@ -151,9 +146,8 @@ export const EmbedListPage = () => {
                 </thead>
                 <tbody>
                   {filtered.map((member, idx) => (
-                    <tr key={member.reg_no} className="border-t transition-colors hover:bg-[rgba(0,212,232,0.03)]" style={{ borderColor: 'rgba(0,212,232,0.06)' }}>
+                    <tr key={member.student_name} className="border-t transition-colors hover:bg-[rgba(0,212,232,0.03)]" style={{ borderColor: 'rgba(0,212,232,0.06)' }}>
                       <td className="px-5 py-3.5 text-xs text-slate-600">{idx + 1}</td>
-                      <td className="px-5 py-3.5 text-xs font-mono text-slate-400">{member.reg_no}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{
@@ -181,7 +175,7 @@ export const EmbedListPage = () => {
                           color: '#00d4e8',
                           border: '1px solid rgba(0,212,232,0.2)'
                         }}>
-                          ✓ Enrolled
+                          Enrolled
                         </span>
                       </td>
                     </tr>
@@ -194,7 +188,7 @@ export const EmbedListPage = () => {
       </Card>
 
       <div className="text-xs text-slate-600 text-center">
-        All members have their face embeddings stored — ready for recognition in all lab sessions.
+        All members have their face embeddings stored ready for recognition in all lab sessions.
       </div>
     </div>
   );
