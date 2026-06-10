@@ -29,14 +29,18 @@ class FaceRecognitionService:
         # Initialize InsightFace with buffalo_l model (includes ArcFace)
         self.app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
         self.app.prepare(ctx_id=0, det_size=(640, 640))
-        
+
         self._initialized = True
         self._embeddings_cache: Dict[str, np.ndarray] = {}
         self._class_embeddings: Dict[str, np.ndarray] = {}
         self._cooldown_tracker: Dict[str, float] = {}
         self._unknown_cooldown_tracker: Dict[str, float] = {}
-        
-        logger.info("InsightFace initialized successfully!")
+
+        # Warm up ONNX runtime so the first real request is instant
+        logger.info("Warming up ONNX runtime...")
+        dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+        self.app.get(dummy)
+        logger.info("InsightFace ready!")
     
     def detect_faces(self, image: np.ndarray) -> List:
         """Detect faces in an image and return face objects"""

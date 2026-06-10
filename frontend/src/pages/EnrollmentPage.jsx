@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, AlertCircle, User, X } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -16,19 +16,28 @@ export const EnrollmentPage = () => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+  const pendingStreamRef = useRef(null);
 
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' },
       });
+      pendingStreamRef.current = stream;
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setIsCapturing(true);
     } catch (err) {
-      alert('Failed to access camera');
+      alert('Failed to access camera: ' + err.message);
     }
   };
+
+  // Attach stream after <video> mounts (isCapturing re-render)
+  useEffect(() => {
+    if (isCapturing && videoRef.current && pendingStreamRef.current) {
+      videoRef.current.srcObject = pendingStreamRef.current;
+      pendingStreamRef.current = null;
+    }
+  }, [isCapturing]);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -193,8 +202,8 @@ export const EnrollmentPage = () => {
                     </label>
                     {isCapturing ? (
                       <div className="space-y-3">
-                        <div className="relative rounded-xl overflow-hidden bg-black" style={{ border: '1px solid rgba(0,212,232,0.2)' }}>
-                          <video ref={videoRef} autoPlay playsInline muted className="w-full" />
+                        <div className="relative rounded-xl overflow-hidden bg-black" style={{ border: '1px solid rgba(0,212,232,0.2)', minHeight: '320px' }}>
+                          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ minHeight: '320px' }} />
                           <canvas ref={canvasRef} className="hidden" />
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="w-48 h-48 rounded-full border-2 border-dashed opacity-60" style={{ borderColor: '#00d4e8' }} />

@@ -157,7 +157,7 @@ class UnknownTrackingService:
                     logger.info(f"Unknown face {tracking_id} left after {duration:.0f}s")
                 
                 # Remove from in-memory cache
-                del _active_unknown_faces[tracking_id]
+                _active_unknown_faces.pop(tracking_id, None)
         
         return marked_left
     
@@ -199,7 +199,7 @@ class UnknownTrackingService:
             if tracking_id.startswith(f"{lecture_id}_")
         ]
         for tracking_id in to_remove:
-            del _active_unknown_faces[tracking_id]
+            _active_unknown_faces.pop(tracking_id, None)
         
         logger.info(f"Cleared {len(to_remove)} active unknown faces for lecture {lecture_id}")
     

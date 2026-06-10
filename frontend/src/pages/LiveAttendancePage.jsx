@@ -20,9 +20,12 @@ export const LiveAttendancePage = () => {
   });
   
   const scanIntervalRef = useRef(null);
+  const readyCheckRef = useRef(null);
+  const scanInProgressRef = useRef(false);
   const logIdRef = useRef(0);
   const previousSnapshotRef = useRef(null);
   const lastInTimeRef = useRef({});
+  const lectureIdRef = useRef('all');
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -36,28 +39,106 @@ export const LiveAttendancePage = () => {
     fetchClasses();
   }, []);
 
+  const doScan = useCallback(async () => {
+    const frame = captureFrame();
+    if (!frame) return;
+
+    const lectureIdToUse = lectureIdRef.current;
+
+    try {
+      const response = await recognitionAPI.recognize(lectureIdToUse, frame, 'attendance');
+
+      setRecognitions(response.data.recognitions);
+
+      const currentSnapshot = {};
+      response.data.recognitions.forEach((r) => {
+        if (r.recognized && r.attendance_marked) {
+          currentSnapshot[r.name] = {
+            name: r.name,
+            confidence: (r.confidence * 100).toFixed(2),
+            timestamp: new Date().toLocaleTimeString(),
+          };
+        }
+      });
+
+      if (!previousSnapshotRef.current) {
+        Object.entries(currentSnapshot).forEach(([, student]) => {
+          const logId = ++logIdRef.current;
+          setLogs((prev) => [
+            { id: logId, timestamp: student.timestamp, type: 'recognized', name: student.name, confidence: student.confidence, status: 'in', lecture_id: lectureIdToUse },
+            ...prev.slice(0, 99),
+          ]);
+          setStats((prev) => ({ ...prev, totalDetected: prev.totalDetected + 1, totalRecognized: prev.totalRecognized + 1 }));
+        });
+      } else {
+        Object.entries(previousSnapshotRef.current).forEach(([name, prevStudent]) => {
+          if (!currentSnapshot[name]) {
+            const lastInTimeStr = lastInTimeRef.current[name];
+            let gapFromLastInSec = 0;
+            if (lastInTimeStr) {
+              try {
+                const lastInDate = new Date(`2024-01-01 ${lastInTimeStr}`);
+                const currentOutDate = new Date(`2024-01-01 ${new Date().toLocaleTimeString()}`);
+                gapFromLastInSec = (currentOutDate - lastInDate) / 1000;
+                if (gapFromLastInSec < 0) gapFromLastInSec += 24 * 3600;
+              } catch (e) { gapFromLastInSec = 0; }
+            }
+            if (gapFromLastInSec > 5) {
+              const logId = ++logIdRef.current;
+              setLogs((prev) => [
+                { id: logId, timestamp: new Date().toLocaleTimeString(), type: 'recognized', name: prevStudent.name, confidence: 'N/A', status: 'out', lecture_id: lectureIdToUse },
+                ...prev.slice(0, 99),
+              ]);
+            }
+          }
+        });
+
+        Object.entries(currentSnapshot).forEach(([name, student]) => {
+          if (!previousSnapshotRef.current[name]) {
+            lastInTimeRef.current[name] = student.timestamp;
+            const logId = ++logIdRef.current;
+            setLogs((prev) => [
+              { id: logId, timestamp: student.timestamp, type: 'recognized', name: student.name, confidence: student.confidence, status: 'in', lecture_id: lectureIdToUse },
+              ...prev.slice(0, 99),
+            ]);
+            setStats((prev) => ({ ...prev, totalDetected: prev.totalDetected + 1, totalRecognized: prev.totalRecognized + 1 }));
+          }
+        });
+      }
+
+      previousSnapshotRef.current = currentSnapshot;
+
+      response.data.recognitions.forEach((r) => {
+        if (r.is_unknown && r.is_new_unknown) {
+          const logId = ++logIdRef.current;
+          setLogs((prev) => [
+            { id: logId, timestamp: new Date().toLocaleTimeString(), type: 'unknown', tracking_id: r.tracking_id?.slice(-12), lecture_id: lectureIdToUse },
+            ...prev.slice(0, 99),
+          ]);
+          setStats((prev) => ({ ...prev, totalDetected: prev.totalDetected + 1, totalUnknown: prev.totalUnknown + 1 }));
+        }
+      });
+    } catch (err) {
+      console.error('Recognition error:', err.response?.data || err.message);
+    }
+  }, [captureFrame]);
+
   const handleStart = async () => {
     try {
       await recognitionAPI.clearEmbeddings();
-      
+
       if (selectedLecture !== 'all') {
         await recognitionAPI.loadClass(selectedLecture);
       } else {
-        if (classes.length > 0) {
-          for (const cls of classes) {
-            try {
-              await recognitionAPI.loadClass(cls.lecture_id);
-            } catch (err) {
-              console.warn(`Failed to load embeddings for ${cls.lecture_id}:`, err);
-            }
-          }
+        for (const cls of classes) {
+          try { await recognitionAPI.loadClass(cls.lecture_id); } catch { /* ignore */ }
         }
       }
-      
+
       await recognitionAPI.clearCooldowns();
-      
       await startCamera();
-      
+
+      lectureIdRef.current = selectedLecture !== 'all' ? selectedLecture : 'all';
       setIsScanning(true);
       setLogs([]);
       logIdRef.current = 0;
@@ -65,145 +146,15 @@ export const LiveAttendancePage = () => {
       lastInTimeRef.current = {};
       setStats({ totalDetected: 0, totalRecognized: 0, totalUnknown: 0 });
 
-      const lectureIdToUse = selectedLecture !== 'all' ? selectedLecture : 'all';
-      
-      scanIntervalRef.current = setInterval(async () => {
-        const frame = captureFrame();
-        if (!frame) {
-          return;
+      // Poll every 100ms until the camera delivers a real frame, then fire instantly
+      readyCheckRef.current = setInterval(() => {
+        if (captureFrame()) {
+          clearInterval(readyCheckRef.current);
+          readyCheckRef.current = null;
+          doScan();
+          scanIntervalRef.current = setInterval(doScan, 500);
         }
-
-        try {
-          const response = await recognitionAPI.recognize(
-            lectureIdToUse,
-            frame,
-            'attendance'
-          );
-
-          setRecognitions(response.data.recognitions);
-
-          const currentSnapshot = {};
-          response.data.recognitions.forEach((r) => {
-            if (r.recognized && r.attendance_marked) {
-              currentSnapshot[r.name] = {
-                name: r.name,
-                confidence: (r.confidence * 100).toFixed(2),
-                timestamp: new Date().toLocaleTimeString(),
-              };
-            }
-          });
-
-          if (!previousSnapshotRef.current) {
-            Object.entries(currentSnapshot).forEach(([, student]) => {
-              const logId = ++logIdRef.current;
-              const logEntry = {
-                id: logId,
-                timestamp: student.timestamp,
-                type: 'recognized',
-                name: student.name,
-                confidence: student.confidence,
-                status: 'in',
-                lecture_id: lectureIdToUse,
-              };
-              setLogs((prev) => [logEntry, ...prev.slice(0, 99)]);
-
-              setStats((prev) => ({
-                ...prev,
-                totalDetected: prev.totalDetected + 1,
-                totalRecognized: prev.totalRecognized + 1,
-              }));
-            });
-          } else {
-            Object.entries(previousSnapshotRef.current).forEach(([name, prevStudent]) => {
-              if (!currentSnapshot[name]) {
-                const lastInTimeStr = lastInTimeRef.current[name];
-                const currentOutTime = new Date();
-                
-                let gapFromLastInSec = 0;
-                if (lastInTimeStr) {
-                  try {
-                    const lastInDate = new Date(`2024-01-01 ${lastInTimeStr}`);
-                    const currentOutDate = new Date(`2024-01-01 ${currentOutTime.toLocaleTimeString()}`);
-                    gapFromLastInSec = (currentOutDate - lastInDate) / 1000;
-                    
-                    if (gapFromLastInSec < 0) {
-                      gapFromLastInSec += 24 * 3600;
-                    }
-                  } catch (e) {
-                    gapFromLastInSec = 0;
-                  }
-                } else {
-                  gapFromLastInSec = 0;
-                }
-                
-                if (gapFromLastInSec > 5) {
-                  const logId = ++logIdRef.current;
-                  const timestamp = new Date().toLocaleTimeString();
-                  const logEntry = {
-                    id: logId,
-                    timestamp,
-                    type: 'recognized',
-                    name: prevStudent.name,
-                    confidence: 'N/A',
-                    status: 'out',
-                    lecture_id: lectureIdToUse,
-                  };
-                  setLogs((prev) => [logEntry, ...prev.slice(0, 99)]);
-                }
-              }
-            });
-
-            Object.entries(currentSnapshot).forEach(([name, student]) => {
-              if (!previousSnapshotRef.current[name]) {
-                lastInTimeRef.current[name] = student.timestamp;
-                
-                const logId = ++logIdRef.current;
-                const logEntry = {
-                  id: logId,
-                  timestamp: student.timestamp,
-                  type: 'recognized',
-                  name: student.name,
-                  confidence: student.confidence,
-                  status: 'in',
-                  lecture_id: lectureIdToUse,
-                };
-                setLogs((prev) => [logEntry, ...prev.slice(0, 99)]);
-
-                setStats((prev) => ({
-                  ...prev,
-                  totalDetected: prev.totalDetected + 1,
-                  totalRecognized: prev.totalRecognized + 1,
-                }));
-              }
-            });
-          }
-
-          previousSnapshotRef.current = currentSnapshot;
-
-          response.data.recognitions.forEach((r) => {
-            if (r.is_unknown && r.is_new_unknown) {
-              const logId = ++logIdRef.current;
-              const timestamp = new Date().toLocaleTimeString();
-              const logEntry = {
-                id: logId,
-                timestamp,
-                type: 'unknown',
-                tracking_id: r.tracking_id?.slice(-12),
-                lecture_id: lectureIdToUse,
-              };
-              setLogs((prev) => [logEntry, ...prev.slice(0, 99)]);
-
-              setStats((prev) => ({
-                ...prev,
-                totalDetected: prev.totalDetected + 1,
-                totalUnknown: prev.totalUnknown + 1,
-              }));
-            }
-          });
-        } catch (err) {
-          console.error('Recognition error:', err.response?.data || err.message);
-        }
-      }, 5000);
+      }, 100);
     } catch (err) {
       console.error('Failed to start:', err);
       alert('Failed: ' + err.message);
@@ -211,10 +162,15 @@ export const LiveAttendancePage = () => {
   };
 
   const handleStop = async () => {
+    if (readyCheckRef.current) {
+      clearInterval(readyCheckRef.current);
+      readyCheckRef.current = null;
+    }
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
+    scanInProgressRef.current = false;
     stopCamera();
     
     if (selectedLecture !== 'all') {

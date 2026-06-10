@@ -3,6 +3,7 @@ from sqlalchemy import select, and_
 from datetime import datetime
 from typing import List, Optional, Dict
 from app.models.models import Attendance, Student
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -35,16 +36,28 @@ LECTURE_STATUS_MAP = {
 }
 
 class AttendanceService:
-    
+    def __init__(self):
+        self._lock = asyncio.Lock()
+
     async def _get_student_id(self, db: AsyncSession, name: str) -> Optional[int]:
         result = await db.execute(select(Student.id).where(Student.name == name))
         row = result.scalar_one_or_none()
         return row
     
     async def get_or_create_attendance(
-        self, 
-        db: AsyncSession, 
-        name: str, 
+        self,
+        db: AsyncSession,
+        name: str,
+        lecture_id: str,
+        date: str = None
+    ) -> Attendance:
+        async with self._lock:
+            return await self._get_or_create_attendance_locked(db, name, lecture_id, date)
+
+    async def _get_or_create_attendance_locked(
+        self,
+        db: AsyncSession,
+        name: str,
         lecture_id: str,
         date: str = None
     ) -> Attendance:
@@ -68,8 +81,8 @@ class AttendanceService:
                 )
             )
         )
-        attendance = result.scalar_one_or_none()
-        
+        attendance = result.scalars().first()
+
         if attendance is None:
             attendance = Attendance(
                 student_id=student_id,
